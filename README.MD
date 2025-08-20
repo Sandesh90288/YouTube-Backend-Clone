@@ -121,3 +121,4 @@ npx husky add .husky/pre-commit "npx lint-staged"
 * The Eraser **Model Link** is listed above for quick reference.
 * Empty folders are kept in Git using placeholder files like `.gitkeep`.
 * Use **Prettier** to keep formatting clean and stable across the project, and optionally automate it with Husky + lint-staged.
+    
