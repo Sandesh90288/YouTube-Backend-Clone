@@ -19,7 +19,7 @@ const app = express();
       console.log("ERROR", error);
       throw error;
     });
-    console.log(`\n MONGODB connected  || DB host :${connectioninstance.connection.host}`)
+    // console.log(`\n MONGODB connected  || DB host :${connectioninstance.connection.host}`)
     app.listen(process.env.PORT, () => {
       console.log(`http://localhost:${process.env.PORT}`);
     });
