@@ -1,30 +1,28 @@
 import dotenv from "dotenv";
-dotenv.config({
-    path:'./.env' 
-});
+dotenv.config({ path: './.env' });
 
 import mongoose from "mongoose";
-import express from "express";
-import { database_name } from "../src/constraints.js";
+import { app } from "./app.js";   // ✅ import the configured app with routes
+import { database_name } from "./constraints.js";
 
-const app = express(); 
-
-// lets work with better approach for db connection is using 
-// Async IIFE (Immediately Invoked Function Expression) using an arrow function.
+// Async IIFE for DB connection
 (async () => { 
   try {
     let url = `${process.env.MONGO_URI}/${database_name}`;
-    const connectioninstance=await mongoose.connect(url);
+    const connectionInstance = await mongoose.connect(url);
+
     app.on("error", (error) => {
       console.log("ERROR", error);
       throw error;
     });
-    // console.log(`\n MONGODB connected  || DB host :${connectioninstance.connection.host}`)
+
     app.listen(process.env.PORT, () => {
-      console.log(`http://localhost:${process.env.PORT}`);
+      console.log(`🚀 Server running at http://localhost:${process.env.PORT}`);
+      console.log(`✅ MongoDB connected || DB host : ${connectionInstance.connection.host}`);
     });
+
   } catch (error) {
-    console.error("mongodb connection failed", error);
+    console.error("❌ MongoDB connection failed", error);
     throw error;
   }
 })();

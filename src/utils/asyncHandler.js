@@ -78,7 +78,7 @@ export { asynchandler };
 //       await (async (req, res) => {
 //         const users = await User.find();
 //         res.json(users);
-//       })(req, res, next);
+//       })(req, res, next); 
 //     } catch (error) {
 //       res.status(error.code || 500).json({
 //         success: false,

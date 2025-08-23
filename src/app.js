@@ -1,9 +1,9 @@
 import express, { urlencoded } from "express";
-import cros from "cros";
+import cors from "cors";
 import cookieParser from "cookie-parser";
 const app=express();
 
-app.use(cros({
+app.use(cors({
     origin:process.env.CROS_ORIGIN,
     credentials:true
 }))//* allow only limited number of ports to interact with this server like frontend etc
@@ -13,7 +13,7 @@ app.use(express.static("public"));
 app.use(cookieParser());
 //routers
 import userroutes from "./routers/user.routes.js"
-app.use("api/v1/users",userroutes);
+app.use("/api/v1/users",userroutes);
 
 
 export {app};

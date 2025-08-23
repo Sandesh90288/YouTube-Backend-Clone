@@ -9,7 +9,7 @@ cloudinary.config({
 });
 
 // Upload from URL
-export const uploadFromUrl = async (imageUrl, publicId) => {
+ const uploadFromUrl = async (imageUrl, publicId) => {
   try {
     const response = await cloudinary.uploader.upload(imageUrl, {
         resource_type:"auto",
@@ -23,7 +23,7 @@ export const uploadFromUrl = async (imageUrl, publicId) => {
 };
 
 // Upload from local file (temporary path in server, e.g. from multer)
-export const uploadFromLocal = async (localFilePath) => {
+ const uploadFromLocal = async (localFilePath) => {
   try {
     const response = await cloudinary.uploader.upload(localFilePath, {
       resource_type: "auto",
@@ -37,3 +37,4 @@ export const uploadFromLocal = async (localFilePath) => {
     throw null;
   }
 };
+export {uploadFromUrl,uploadFromLocal};
