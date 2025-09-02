@@ -32,10 +32,10 @@ const userSchema = new Schema(
     coverImage: {
       type: String, //cloudinary image
     },
-    watchHistory: {
+    watchHistory: [{
       type: Schema.Types.ObjectId,
       ref: "video",
-    },
+    }],
     password: {
       type: String,
       required: [true, "password is required"],
