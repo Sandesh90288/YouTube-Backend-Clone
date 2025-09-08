@@ -1,7 +1,7 @@
 import { Router } from "express";
-import { register } from "../controllers/user.controller.js";
+import { register,loginUser,logoutUser, refreshAccessToken } from "../controllers/user.controller.js";
 import {upload} from "../middleware/multer.middleware.js"
-import verifyJWT from "../middleware/auth.middleware.js"
+import {verifyJWT} from "../middleware/auth.middleware.js"
 //! Because in most tutorials boilerplates:
 // Each router file has exactly one main export (the router itself).
 // That’s why they use export default router;, so you can import it with any name you like
@@ -26,6 +26,7 @@ router.get("/test", (req, res) => {
 router.route("/login").post(loginUser);
 //secure routes
 router.route("/logout").post(verifyJWT,logoutUser);
-
+ 
+router.route("/refresh-token").post(refreshAccessToken)
   
 export default router;

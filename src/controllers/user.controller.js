@@ -3,6 +3,7 @@ import  {ApiError} from '../utils/apiError.js';
 import {User} from "../model/user.model.js"
 import {uploadFromLocal} from "../utils/cloudinary.js"
 import  {apiResponse} from "../utils/apiResponse.js"
+import jwt from "jsonwebtoken";
 
 const generateRefreshAndAccesstokens=async(userId)=>
 {
@@ -11,7 +12,8 @@ const generateRefreshAndAccesstokens=async(userId)=>
      const accessToken=user.generateAccessToken();
      const refreshToken=user.generateRefreshToken();
      user.refreshtoken=refreshToken;
-    await user.save(validateBeforeSave:false);
+     await user.save({ validateBeforeSave: false });
+     
 //?   When you call user.save() in Mongoose:
 // By default, Mongoose validates the document before saving it to the database.
 // Validation checks things like:
@@ -103,7 +105,7 @@ const loginUser=asynchandler(async (req,res)=>
     //access and refresh token
     //send cookies
     const{email,password,username}=req.body;
-    if(!email||!username)
+    if(!email&&!username)
     {
       throw new ApiError(400,"username or email is required");
     }
@@ -123,7 +125,7 @@ const loginUser=asynchandler(async (req,res)=>
         throw new ApiError(401,"password invalid");
       }
    const {refreshToken,accessToken}=await generateRefreshAndAccesstokens(user._id);
-  const loggineduser=  await User.findById(user_id).select("-password -refreshtoken");
+  const loggineduser=  await User.findById(user._id).select("-password -refreshtoken");
 //   This fetches the same user again,
 // But this time you exclude sensitive fields (password, refreshToken).
 // This is the safe version of the user you can return to the frontend.
@@ -176,8 +178,103 @@ const logoutUser=asynchandler(async(req,res)=>
 
   return res
   .status(200)
-  .clearCookie("accessToken",options)
-  .clearCookie("refreshToken",options)
-   .apiResponse(200,{},"User logged out successfully");
+  .clearCookie("accessToken", options)
+  .clearCookie("refreshToken", options)
+  .json(new apiResponse(200, {}, "User logged out successfully"));
+
 });
-export {register,loginUser,logoutUser};
+
+/**
+ * Refresh Access Token Controller
+ * 
+ * Purpose: Generate new access and refresh tokens when the current access token expires
+ * 
+ * Flow:
+ * 1. Get refresh token from cookies or request body
+ * 2. Verify the refresh token is valid and not expired
+ * 3. Check if user still exists in database
+ * 4. Verify refresh token matches what's stored in database (prevents token reuse)
+ * 5. Generate new access and refresh tokens
+ * 6. Set new tokens in cookies and return them
+ * 
+ * Security Features:
+ * - Token signature verification
+ * - Token expiration check
+ * - User existence validation
+ * - Token revocation check (prevents use of old tokens after logout)
+ * - HttpOnly cookies (prevents XSS attacks)
+ * - Secure cookies (HTTPS only)
+ */
+const refreshAccessToken = asynchandler(async (req, res) => {
+    // Step 1: Extract refresh token from request
+    // Priority: Cookie first (automatic), then request body (manual)
+    const incomingRefreshToken = req.cookies.refreshToken || req.body.refreshToken;
+    
+    // Step 2: Validate refresh token exists
+    if (!incomingRefreshToken) {
+        throw new ApiError(401, "Unauthorized Request - No refresh token provided");
+    }
+    
+    try {
+        // Step 3: Verify refresh token signature and expiration
+        // This will throw an error if token is:
+        // - Tampered with (invalid signature)
+        // - Expired (past exp timestamp)
+        // - Malformed (invalid format)
+        const decodedToken = jwt.verify(incomingRefreshToken, process.env.REFRESH_TOKEN_SECRET);
+        
+        // Step 4: Check if user still exists in database
+        // This prevents use of tokens from deleted/suspended accounts
+        const user = await User.findById(decodedToken?._id);
+        if (!user) {
+            throw new ApiError(401, "Invalid refresh token - User not found");
+        }
+        
+        // Step 5: Verify refresh token matches what's stored in database
+        // This prevents:
+        // - Use of old tokens after logout (token revocation)
+        // - Token reuse attacks
+        // - Use of tokens from other sessions
+        if (incomingRefreshToken !== user?.refreshtoken) {
+            throw new ApiError(401, "Refresh token expired or used - Please login again");
+        }
+        
+        // Step 6: Generate new access and refresh tokens
+        // This creates a fresh set of tokens for the user
+        const { accessToken, refreshToken } = await generateRefreshAndAccesstokens(user._id);
+        
+        // Step 7: Configure cookie options for security
+        const options = {
+            httpOnly: true,    // Prevents JavaScript access (XSS protection)
+            secure: true,      // Only send over HTTPS (production security)
+            maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days persistence
+        };
+        
+        // Step 8: Send response with new tokens
+        return res
+            .status(200)
+            .cookie("accessToken", accessToken, options)      // Set new access token cookie
+            .cookie("refreshToken", refreshToken, options)   // Set new refresh token cookie
+            .json(
+                new apiResponse(200, 
+                    { 
+                        accessToken, 
+                        refreshToken 
+                    }, 
+                    "Access token refreshed successfully"
+                )
+            );
+            
+    } catch (error) {
+        // Handle JWT verification errors (expired, invalid, tampered tokens)
+        if (error.name === 'TokenExpiredError') {
+            throw new ApiError(401, "Refresh token expired - Please login again");
+        } else if (error.name === 'JsonWebTokenError') {
+            throw new ApiError(401, "Invalid refresh token - Please login again");
+        } else {
+            // Handle other errors (database errors, etc.)
+            throw new ApiError(401, error?.message || "Invalid refresh token");
+        }
+    }
+});
+export {register, loginUser, logoutUser, refreshAccessToken};

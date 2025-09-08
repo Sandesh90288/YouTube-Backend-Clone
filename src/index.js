@@ -19,7 +19,7 @@ import { database_name } from "./constraints.js";
     app.listen(process.env.PORT, () => {
       console.log(`🚀 Server running at http://localhost:${process.env.PORT}`);
       console.log(`✅ MongoDB connected || DB host : ${connectionInstance.connection.host}`);
-    });
+    }); 
 
   } catch (error) {
     console.error("❌ MongoDB connection failed", error);

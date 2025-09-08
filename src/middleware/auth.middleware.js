@@ -1,8 +1,9 @@
 import {asynchandler} from "../utils/asyncHandler.js"
 import jwt from "jsonwebtoken";
 import {User} from "../model/user.model.js"
+import {ApiError} from "../utils/apiError.js"
 // _ is means blank as req is blank so i used in below;
-export const verifyJWT= asynchandler(async(req, _,next)=>
+ const verifyJWT= asynchandler(async(req, _,next)=>
 {
  try {
        const token=req.cookies?.accessToken||req.header("Authorization")?.replace("Bearer ", "");
@@ -37,6 +38,10 @@ export const verifyJWT= asynchandler(async(req, _,next)=>
     if (!token) {
        throw new ApiError("404","Unauthorized request");
     }
+
+    console.log("Generated Tokens:", token);
+
+
      const decodedToken=jwt.verify(token,process.env.ACCESS_TOKEN_SECRET);
      const user=await User.findById(decodedToken?._id).select("-password -refreshtoken");
      if(!user)
@@ -50,3 +55,4 @@ export const verifyJWT= asynchandler(async(req, _,next)=>
  }
 
 });
+export {verifyJWT}

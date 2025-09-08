@@ -77,22 +77,24 @@ userSchema.methods.isPasswordCorrect=async function(password){
 // bcrypt.compare("mypassword123", this.password);
 // Here, this.password = the hash stored in that specific user document.
 
-userSchema.methods.generateAccessToken=async function(){
-   return jwt.sign({
-        _id:this._id,
-        _email:this.email,
-        _username:this.username
-    },process.env.ACCESS_TOKEN_SECRET,
+userSchema.methods.generateAccessToken = function () {
+  return jwt.sign(
     {
-    expiresIn:ACCESS_TOKEN_EXPIRY
-    })
- }
-userSchema.methods.generateRefreshToken=async function(){
-    return jwt.sign({
-        _id:this._id,
-    },process.env.REFRESH_TOKEN_SECRET,
-    {
-    expiresIn:REFRESH_TOKEN_EXPIRY
-    })
- }
+      _id: this._id,
+      email: this.email,
+      username: this.username,
+    },
+    process.env.ACCESS_TOKEN_SECRET,
+    { expiresIn: process.env.ACCESS_TOKEN_EXPIRY }
+  );
+};
+
+userSchema.methods.generateRefreshToken = function () {
+  return jwt.sign(
+    { _id: this._id },
+    process.env.REFRESH_TOKEN_SECRET,
+    { expiresIn: process.env.REFRESH_TOKEN_EXPIRY }
+  );
+};
+
 export const User = mongoose.model("User", userSchema);
