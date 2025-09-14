@@ -277,4 +277,186 @@ const refreshAccessToken = asynchandler(async (req, res) => {
         }
     }
 });
-export {register, loginUser, logoutUser, refreshAccessToken};
+
+
+const changeCurrentPassword=asyncHandler(async (req,res)=>
+{
+ const {oldPassword,newPassword}=req.body;
+ const user=await User.findById(req.user?._id);
+ const isPasswordCorrect=await user.isPasswordCorrect(oldPassword);
+ if(!isPasswordCorrect)
+ {
+   throw new ApiError(400,"Invalid old Password");
+ }
+ user.password=newPassword;
+ await  user.save({validateBeforeSave:false});
+ return res
+ .status(200)
+ .json(new apiResponse(200,{},"passward changed successfully"))
+});
+
+const getcurrentUser=asyncHandler(async(req,res)=>
+{
+   return res
+   .status(200)
+   .json(200,req.user,"current User fetched successfully")
+});
+
+const updateAccountDetails=asyncHandler(async (req,res)=>
+{
+   const {fullname,email}=req.body;
+   if(!fullname || !email)
+   {
+      throw apiError(400,"All fields are required");
+   }
+  const user= User.findByIdAndUpdate(req.user.?_id,{
+   $set:{
+      fullname:fullname,
+      email:email
+   }
+  },{new:true}).select("-password");//{new:true} means return updated user
+
+  return res
+  .status(200)
+  .json(new apiResponse(200,user,"Account Successfully Updated"));
+})
+
+const updateUserAvatar=asyncHandler(async (req,res)=>
+{
+    const avatarLocalPath= req.file?.path;
+    if(!avatarLocalPath)
+    {
+      throw new apiError(400,"Avatar file is missing")
+    }
+  const avatar= await uploadFromLocal(avatarLocalPath);
+  if(!avatar.url)
+  {
+    throw new apiError(400,"Error While uploading avatar")
+  }
+  const user= User.findByIdAndUpdate(req.user.?_id,{
+   $set:{
+      avatar:avatar.url
+   }
+  },{new:true}).select("-password");
+
+  return res
+  .status(200)
+  .json(new apiResponse(200,user,"Avatar upadated Successfully"))
+})
+const updateUserCoverImage=asyncHandler(async (req,res)=>
+{
+    const coverImageLocalPath= req.file?.path;
+    if(!coverImageLocalPath)
+    {
+      throw new apiError(400,"cover image file is missing")
+    }
+  const coverImage= await uploadFromLocal(coverImageLocalPath);
+  if(!coverImage.url)
+  {
+    throw new apiError(400,"Error While uploading avatar")
+  }
+  const user= User.findByIdAndUpdate(req.user.?_id,{
+   $set:{
+      coverImage:coverImage.url
+   }
+  },{new:true}).select("-password");
+
+  return res
+  .status(200)
+  .json(new apiResponse(200,user,"cover Image upadated Successfully"))
+});
+ 
+//when user search for channel what he will see
+// 1.username
+// 2.fullname
+// 3.avatar
+// 4.subscribers count
+// 5.(he or this channel)subscribedto count 
+// 6.is user(i-sandesh) subscribed to this channel
+ //7.coverImage
+ //8.avatar
+//in short creating api for channel profile
+//study about aggresstion 
+const getUserChannelProfile=asyncHandler(async (req,res)=>
+{
+  const {username}=req.params;
+  if(!username?.trim())
+   {
+   throw new apiError(404,"Username doesnot Exists")
+   } 
+   //! User.find({username});//insterd of find user and implement aggregration use below statement
+// aggregate() is a method that allows you to perform advanced data processing on collections.
+// Instead of just finding documents (find()), you can transform, filter, group, sort, or reshape data.
+// It takes an array of pipeline stages ([{}, {}, {}]) where each object {} is a stage.
+
+// it is just like writing query in sql
+
+//problem statement:i need all subscriber of channel
+  const channel=await User.aggregrate([{
+   $match:{
+      username:username?.toLowerCase();
+   }},
+   {
+      $lookup:{
+         from:"subscriptions",//in database collection name is stored in lowercase with pural form
+         localField:"_id",
+         foreignField:"channel",
+         as subscribers 
+      }
+   },
+   {
+      $lookup:{
+         from:"subscriptions",//in database collection name is stored in lowercase with pural form
+         localField:"_id",
+         foreignField:"channel",
+         as subscribedTo
+      }
+   },
+   {
+      $addFields:
+      {
+         subscriberscount:
+         {
+            $size:"$subscribers"//count of subcribers
+         },
+         channelssubscribedTocount:
+         {
+            $size:"$subscribedTO"
+         },
+         issubscriber:
+         {
+            $cond:
+            {
+               if:{$in:[req.user?._id, "$subscribers.subscriber" ]},//means you or logged in user is subscribed to the username channel
+               then:true,
+               else:false 
+            }
+         }
+      }
+   },
+   {
+      $project:{
+         fullname:1,
+         username:1,
+         subscriberscount:1,
+         channelssubscribedTocount:1,
+         issubscriber:1,
+         avatar:1,
+         coverImage:1,
+
+      }
+   }
+])//subscriberscount and channelssubscribedTocount fields are added to user document
+if(!channel?.lenght)
+{
+   throw new apiError(404,"channel not found");
+}
+   return res
+   .status(200)
+   .json(new apiResponse(200,channel[0],"user channel fetched successfully"))
+});
+
+
+export {register, loginUser, logoutUser, refreshAccessToken,changeCurrentPassword,getcurrentUser
+   ,updateAccountDetails,updateUserAvatar,updateUserCoverImage,getUserChannelProfile
+};
