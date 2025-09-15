@@ -1,4 +1,4 @@
-import { asynchandler } from "../utils/asyncHandler.js";
+import { asynchandler } from "../utils/asynchandler.js";
 import  {ApiError} from '../utils/apiError.js';
 import {User} from "../model/user.model.js"
 import {uploadFromLocal} from "../utils/cloudinary.js"
@@ -279,7 +279,7 @@ const refreshAccessToken = asynchandler(async (req, res) => {
 });
 
 
-const changeCurrentPassword=asyncHandler(async (req,res)=>
+const changeCurrentPassword=asynchandler(async (req,res)=>
 {
  const {oldPassword,newPassword}=req.body;
  const user=await User.findById(req.user?._id);
@@ -295,14 +295,14 @@ const changeCurrentPassword=asyncHandler(async (req,res)=>
  .json(new apiResponse(200,{},"passward changed successfully"))
 });
 
-const getcurrentUser=asyncHandler(async(req,res)=>
+const getcurrentUser=asynchandler(async(req,res)=>
 {
    return res
    .status(200)
    .json(200,req.user,"current User fetched successfully")
 });
 
-const updateAccountDetails=asyncHandler(async (req,res)=>
+const updateAccountDetails=asynchandler(async (req,res)=>
 {
    const {fullname,email}=req.body;
    if(!fullname || !email)
@@ -321,7 +321,7 @@ const updateAccountDetails=asyncHandler(async (req,res)=>
   .json(new apiResponse(200,user,"Account Successfully Updated"));
 })
 
-const updateUserAvatar=asyncHandler(async (req,res)=>
+const updateUserAvatar=asynchandler(async (req,res)=>
 {
     const avatarLocalPath= req.file?.path;
     if(!avatarLocalPath)
@@ -343,7 +343,7 @@ const updateUserAvatar=asyncHandler(async (req,res)=>
   .status(200)
   .json(new apiResponse(200,user,"Avatar upadated Successfully"))
 })
-const updateUserCoverImage=asyncHandler(async (req,res)=>
+const updateUserCoverImage=asynchandler(async (req,res)=>
 {
     const coverImageLocalPath= req.file?.path;
     if(!coverImageLocalPath)
@@ -377,7 +377,7 @@ const updateUserCoverImage=asyncHandler(async (req,res)=>
  //8.avatar
 //in short creating api for channel profile
 //study about aggresstion 
-const getUserChannelProfile=asyncHandler(async (req,res)=>
+const getUserChannelProfile=asynchandler(async (req,res)=>
 {
   const {username}=req.params;
   if(!username?.trim())
@@ -392,7 +392,7 @@ const getUserChannelProfile=asyncHandler(async (req,res)=>
 // it is just like writing query in sql
 
 //problem statement:i need all subscriber of channel
-  const channel=await User.aggregrate([{
+  const channel=await User.aggregate([{
    $match:{
       username:username?.toLowerCase();
    }},
@@ -456,7 +456,109 @@ if(!channel?.lenght)
    .json(new apiResponse(200,channel[0],"user channel fetched successfully"))
 });
 
+const getWatchHistory=asynchandler(async (req,res)=>
+{
+// When querying/aggregating, wrap req.user._id in mongoose.Types.ObjectId().
+// If you’re saving it in another document as a reference, store it as ObjectId type, not string. 
+// reason
+// Because req.user._id is a string but MongoDB stores _id as an ObjectId, and MongoDB does strict type checking.
+const user = User.aggregate([
+   {
+     $match: {
+       // _id:req.user._id wrong
+       _id: new mongoose.Types.ObjectId(req.user._id)
+     }
+   },
+   {
+     // performing join between user and video to join watchHistory 
+     // and for owner in video as it is user we perform another join with user to store user in video's owner
+ 
+     // watchHistory(_id) -> (join) -> video(_id) 
+     // videos(owner) -> (join) -> user(_id) 
+     $lookup: {
+       from: "videos",
+       localField: "watchHistory",
+       foreignField: "_id",
+       as: "watchHistory",
+       pipeline: [
+         {
+           $lookup: {
+             from: "users",
+             localField: "owner",
+             foreignField: "_id",
+             as: "owner",
+             pipeline: [
+               {
+                 // to store only the required properties in owner we use pipeline and use $project inside the owner itself
+                 $project: {
+                   fullname: 1,
+                   username: 1,
+                   avatar: 1
+                 }
+               }
+             ]
+           }
+         },
+         {
+           $addFields: {
+             // check below why I used this
+             owner: { $first: "$owner" }
+           }
+         }
+       ]
+     }
+   }
+ ]);
+ 
 
-export {register, loginUser, logoutUser, refreshAccessToken,changeCurrentPassword,getcurrentUser
-   ,updateAccountDetails,updateUserAvatar,updateUserCoverImage,getUserChannelProfile
-};
+return res
+.status(200)
+.json(new apiResponse(200,user[0].watchHistory,"watch history fetched successfully"))
+});
+
+export {
+   register,
+   loginUser,
+   logoutUser,
+   refreshAccessToken,
+   changeCurrentPassword,
+   getcurrentUser,
+   updateAccountDetails,
+   updateUserAvatar,
+   updateUserCoverImage,
+   getUserChannelProfile,
+   getWatchHistory
+ };
+ 
+
+
+// Good question 👌
+// If you **don’t write the `$addFields` stage**, here’s what happens:
+// * After `$lookup`, the `owner` field will be an **array**, even if there’s only **one matched user**.
+//   Example:
+//   ```js
+//   {
+//     title: "Post 1",
+//     owner: [
+//       {
+//         fullname: "Sandesh",
+//         username: "sandesh123",
+//         avatar: "pic.jpg"
+//       }
+//     ]
+//   }
+//   ```
+// * With `$addFields` + `$first`, you "unwrap" the array so `owner` becomes a **single object** instead of an array:
+//   ```js
+//   {
+//     title: "Post 1",
+//     owner: {
+//       fullname: "Sandesh",
+//       username: "sandesh123",
+//       avatar: "pic.jpg"
+//     }
+//   }
+//   ```
+// --
+// 👉 So without `$addFields`, you’ll always get `owner` as an **array of objects**, not a plain object.
+// Do you want me to also explain **when it’s better to keep it an array** instead of `$first`?
