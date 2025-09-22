@@ -1,10 +1,11 @@
-📌 Project Summary
+#Project Summary
 
 This is a comprehensive backend project built with Node.js, Express.js, MongoDB, Mongoose, JWT, bcrypt, and other modern tools. It is designed as a full-featured video hosting platform similar to YouTube, supporting user authentication (signup/login), video upload and streaming, likes/dislikes, comments and replies, subscriptions, and more.
 
 The project follows industry-standard practices, including JWT-based authentication, access & refresh tokens, and secure password hashing, ensuring robust security and scalability.
 
 It demonstrates real-world backend development, including API design, database modeling, and secure user management, providing a strong learning resource for building scalable and secure web applications.
+
 # Project Setup Notes
 
 ## 🔗 Model Link
