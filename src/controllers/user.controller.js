@@ -1,5 +1,5 @@
 import { asynchandler } from "../utils/asynchandler.js";
-import  {ApiError} from '../utils/apiError.js';
+import  {ApiError} from '../utils/ApiError.js';
 import {User} from "../model/user.model.js"
 import {uploadFromLocal} from "../utils/cloudinary.js"
 import  {apiResponse} from "../utils/apiResponse.js"
@@ -299,7 +299,7 @@ const getcurrentUser=asynchandler(async(req,res)=>
 {
    return res
    .status(200)
-   .json(200,req.user,"current User fetched successfully")
+   .json( new apiResponse(200,req.user,"current User fetched successfully"))
 });
 
 const updateAccountDetails=asynchandler(async (req,res)=>
@@ -307,11 +307,11 @@ const updateAccountDetails=asynchandler(async (req,res)=>
    const {fullname,email}=req.body;
    if(!fullname || !email)
    {
-      throw apiError(400,"All fields are required");
+      throw new ApiError(400,"All fields are required");
    }
-  const user= User.findByIdAndUpdate(req.user.?_id,{
-   $set:{
-      fullname:fullname,
+  const user= await User.findByIdAndUpdate(req.user?._id,{
+   $set:{ 
+      fullname:fullname, 
       email:email
    }
   },{new:true}).select("-password");//{new:true} means return updated user
@@ -326,14 +326,14 @@ const updateUserAvatar=asynchandler(async (req,res)=>
     const avatarLocalPath= req.file?.path;
     if(!avatarLocalPath)
     {
-      throw new apiError(400,"Avatar file is missing")
+      throw new ApiError(400,"Avatar file is missing")
     }
   const avatar= await uploadFromLocal(avatarLocalPath);
   if(!avatar.url)
   {
-    throw new apiError(400,"Error While uploading avatar")
+    throw new ApiError(400,"Error While uploading avatar")
   }
-  const user= User.findByIdAndUpdate(req.user.?_id,{
+  const user= await User.findByIdAndUpdate(req.user?._id,{
    $set:{
       avatar:avatar.url
    }
@@ -348,20 +348,20 @@ const updateUserCoverImage=asynchandler(async (req,res)=>
     const coverImageLocalPath= req.file?.path;
     if(!coverImageLocalPath)
     {
-      throw new apiError(400,"cover image file is missing")
+      throw new ApiError(400,"cover image file is missing")
     }
   const coverImage= await uploadFromLocal(coverImageLocalPath);
   if(!coverImage.url)
   {
-    throw new apiError(400,"Error While uploading avatar")
+    throw new ApiError(400,"Error While uploading avatar")
   }
-  const user= User.findByIdAndUpdate(req.user.?_id,{
+  const user= await User.findByIdAndUpdate(req.user?._id,{
    $set:{
       coverImage:coverImage.url
    }
   },{new:true}).select("-password");
 
-  return res
+  return res 
   .status(200)
   .json(new apiResponse(200,user,"cover Image upadated Successfully"))
 });
@@ -377,85 +377,81 @@ const updateUserCoverImage=asynchandler(async (req,res)=>
  //8.avatar
 //in short creating api for channel profile
 //study about aggresstion 
-const getUserChannelProfile=asynchandler(async (req,res)=>
-{
-  const {username}=req.params;
-  if(!username?.trim())
-   {
-   throw new apiError(404,"Username doesnot Exists")
-   } 
-   //! User.find({username});//insterd of find user and implement aggregration use below statement
-// aggregate() is a method that allows you to perform advanced data processing on collections.
-// Instead of just finding documents (find()), you can transform, filter, group, sort, or reshape data.
-// It takes an array of pipeline stages ([{}, {}, {}]) where each object {} is a stage.
-
-// it is just like writing query in sql
-
-//problem statement:i need all subscriber of channel
-  const channel=await User.aggregate([{
-   $match:{
-      username:username?.toLowerCase();
-   }},
-   {
-      $lookup:{
-         from:"subscriptions",//in database collection name is stored in lowercase with pural form
-         localField:"_id",
-         foreignField:"channel",
-         as subscribers 
-      }
-   },
-   {
-      $lookup:{
-         from:"subscriptions",//in database collection name is stored in lowercase with pural form
-         localField:"_id",
-         foreignField:"channel",
-         as subscribedTo
-      }
-   },
-   {
-      $addFields:
-      {
-         subscriberscount:
-         {
-            $size:"$subscribers"//count of subcribers
-         },
-         channelssubscribedTocount:
-         {
-            $size:"$subscribedTO"
-         },
-         issubscriber:
-         {
-            $cond:
-            {
-               if:{$in:[req.user?._id, "$subscribers.subscriber" ]},//means you or logged in user is subscribed to the username channel
-               then:true,
-               else:false 
-            }
-         }
-      }
-   },
-   {
-      $project:{
-         fullname:1,
-         username:1,
-         subscriberscount:1,
-         channelssubscribedTocount:1,
-         issubscriber:1,
-         avatar:1,
-         coverImage:1,
-
-      }
+const getUserChannelProfile = asynchandler(async (req, res) => {
+   const { username } = req.params;
+   if (!username?.trim()) {
+     throw new ApiError(400, "Username is required"); // changed 404 -> 400 for invalid input
    }
-])//subscriberscount and channelssubscribedTocount fields are added to user document
-if(!channel?.lenght)
-{
-   throw new apiError(404,"channel not found");
-}
+ 
+   //! User.find({username});//insterd of find user and implement aggregration use below statement
+   // aggregate() is a method that allows you to perform advanced data processing on collections.
+   // Instead of just finding documents (find()), you can transform, filter, group, sort, or reshape data.
+   // It takes an array of pipeline stages ([{}, {}, {}]) where each object {} is a stage.
+ 
+   // it is just like writing query in sql
+ 
+   //problem statement:i need all subscriber of channel
+   const channel = await User.aggregate([
+     {
+       $match: {
+         username: username?.toLowerCase(),
+       },
+     },
+     {
+       $lookup: {
+         from: "subscriptions", //in database collection name is stored in lowercase with pural form
+         localField: "_id",
+         foreignField: "channel",
+         as: "subscribers", // ✅ fixed missing colon
+       },
+     },
+     {
+       $lookup: {
+         from: "subscriptions", //in database collection name is stored in lowercase with pural form
+         localField: "_id",
+         foreignField: "subscriber", // ✅ should be "subscriber" not "channel" (for subscribedTo)
+         as: "subscribedTo", // ✅ fixed invalid identifier (needed quotes)
+       },
+     },
+     {
+       $addFields: {
+         subscriberscount: {
+           $size: "$subscribers", //count of subcribers
+         },
+         channelssubscribedTocount: {
+           $size: "$subscribedTo", // ✅ fixed typo "subscribedTO"
+         },
+         issubscriber: {
+           $cond: {
+             if: { $in: [req.user?._id, "$subscribers.subscriber"] }, //means you or logged in user is subscribed to the username channel
+             then: true,
+             else: false,
+           },
+         },
+       },
+     },
+     {
+       $project: {
+         fullname: 1,
+         username: 1,
+         subscriberscount: 1,
+         channelssubscribedTocount: 1,
+         issubscriber: 1,
+         avatar: 1,
+         coverImage: 1,
+       },
+     },
+   ]); //subscriberscount and channelssubscribedTocount fields are added to user document
+ 
+   if (!channel?.length) { // ✅ fixed "lenght" -> "length"
+     throw new ApiError(404, "Channel not found"); 
+   }
+ 
    return res
-   .status(200)
-   .json(new apiResponse(200,channel[0],"user channel fetched successfully"))
-});
-
+     .status(200)
+     .json(new apiResponse(200, channel[0], "User channel fetched successfully"));
+ });
+ 
 const getWatchHistory=asynchandler(async (req,res)=>
 {
 // When querying/aggregating, wrap req.user._id in mongoose.Types.ObjectId().

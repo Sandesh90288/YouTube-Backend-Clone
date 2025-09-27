@@ -39,15 +39,14 @@ router.route("/login").post(loginUser);
 //secure routes
 router.route("/logout").post(verifyJWT,logoutUser);
  
-router.route("/refresh-token").post(refreshAccessToken  );
-router.route("/change-password").post(verifyJWT,changeCurrentPassword);
-router.route("/current-user").post(verifyJWT,getcurrentUser);
+router.route("/refresh-token").post(refreshAccessToken);
+router.route("/change-password").patch(verifyJWT,changeCurrentPassword);
+router.route("/current-user").get(verifyJWT,getcurrentUser);
 router.route("/update-account").patch(verifyJWT,updateAccountDetails);
 router.route("/update-avatar").patch(verifyJWT,upload.single("avatar"),updateUserAvatar);//first user must be login then multer should be used to allow files then controller
 router.route("/update-coverImage").patch(verifyJWT,upload.single("coverImage"),updateUserCoverImage);//first user must be login then multer should be used to allow files then controller
 router.route("/c/:username").get(verifyJWT,getUserChannelProfile);
 router.route("/history").get(verifyJWT,getWatchHistory);
-
 
   
 export default router;
